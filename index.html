@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>KIEN_ĐỌC FILE PDF</title>
+  <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    input, button { margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <h2>📦 Tách từng mã đơn (trên A4) thành từng trang A6</h2>
+  <input type="file" id="fileInput" accept="application/pdf">
+  <button onclick="splitPDF()">Xử lý PDF</button>
+
+  <div id="result" style="margin-top: 30px;"></div>
+
+  <script>
+    async function splitPDF() {
+      const file = document.getElementById('fileInput').files[0];
+      if (!file) {
+        alert("Vui lòng chọn file PDF.");
+        return;
+      }
+
+      const arrayBuffer = await file.arrayBuffer();
+      const pdfDoc = await PDFLib.PDFDocument.load(arrayBuffer);
+      const newPdf = await PDFLib.PDFDocument.create();
+
+      const numPages = pdfDoc.getPageCount();
+
+      // Kích thước A6 chuẩn Bắc Mỹ (4x6 inch)
+      const a6Width = 4 * 72;  // 4 inch = 4 * 72 pt
+      const a6Height = 6 * 72; // 6 inch = 6 * 72 pt
+
+      // Kích thước A4 chuẩn (595px x 842px)
+      const a4Width = 595; // Chiều rộng A4 (px)
+      const a4Height = 842; // Chiều cao A4 (px)
+
+      // Kích thước mỗi mã đơn trên A4, chia thành 2 cột và 2 hàng
+      const columnWidth = a4Width / 2; // 297.5px
+      const rowHeight = a4Height / 2; // 421px
+
+      // Xử lý từng trang trong file PDF gốc
+      for (let i = 0; i < numPages; i++) {
+        const page = pdfDoc.getPage(i);
+
+        // Cắt mã đơn từ tờ A4 và tạo các trang A6
+        for (let row = 0; row < 2; row++) {
+          for (let col = 0; col < 2; col++) {
+            const newPage = newPdf.addPage([a6Width, a6Height]); // Tạo một trang A6 mới
+
+            // Tính toán vị trí của từng mã đơn trên tờ A4
+            const left = col * columnWidth;
+            const bottom = row * rowHeight;
+            const right = left + columnWidth;
+            const top = bottom + rowHeight;
+
+            // Cắt mã đơn từ tờ A4 và dán vào trang A6
+            const [embeddedPage] = await newPdf.embedPages([page], [{
+              left: left,
+              bottom: bottom,
+              right: right,
+              top: top
+            }]);
+
+            // Đưa mã đơn vào trang A6 với kích thước chính xác
+            newPage.drawPage(embeddedPage, {
+              x: 0,
+              y: 0,
+              width: a6Width,    // Đảm bảo vừa khớp với kích thước A6
+              height: a6Height   // Đảm bảo vừa khớp với kích thước A6
+            });
+          }
+        }
+      }
+
+      // Tạo và tải PDF mới
+      const pdfBytes = await newPdf.save();
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+
+      document.getElementById('result').innerHTML = `
+        <h3>✅ Đã tạo file PDF mới (mỗi mã đơn 1 trang A6)</h3>
+        <a href="${url}" download="ma-don-a6.pdf" target="_blank">📥 Tải file</a>
+        <iframe src="${url}" width="100%" height="600px" style="margin-top: 20px;"></iframe>
+      `;
+    }
+  </script>
+</body>
+</html>
